@@ -1,0 +1,24 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Python virtual environments
+.venv/
+venv/
+env/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+.dev.vars
+
+# Local dataset
+PhiUSIIL_Phishing_URL_Dataset.csv
+
+# Local development files
+.DS_Store
+Thumbs.db
+
+# Cloudflare local configuration
+.wrangler/

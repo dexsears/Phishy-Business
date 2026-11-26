@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phishy Business</title>
+<meta name="description" content="Dashboard comparing phishing and legitimate website addresses.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip" href="#view">Skip to content</a>
+<div id="demo" class="demo" hidden>Demo data. These numbers are simulated. Run analysis.py on the real dataset before presenting.</div>
+<div id="error" class="error" role="alert" hidden></div>
+<div class="shell">
+  <nav class="rail" aria-label="Main"><a class="logo" href="#/overview">Phishy Business</a><div id="links"></div></nav>
+  <div class="col">
+    <header class="bar"><span id="who"></span><button id="out" class="btn ghost" type="button" hidden>Sign out</button></header>
+    <main id="view" tabindex="-1"></main>
+    <footer id="foot"></footer>
+  </div>
+</div>
+<script src="results.js"></script>
+<script src="sample.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
