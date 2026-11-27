@@ -5,6 +5,7 @@
 (() => {
 "use strict";
 const AI_URL = "";   // paste your Cloudflare Worker address here (see README)
+const AI_NAME = "Phishician";   // name shown on the chat button
 const ADMIN_PASSCODE = "interns";   // change it here. Anyone can read it in the page source.
 const $ = id => document.getElementById(id);
 const R = window.RESULTS, S = window.SAMPLE;
@@ -15,7 +16,7 @@ if (typeof Chart === "undefined") return fail("The chart library did not load. C
 const PH = "#ff6a3d", LG = "#2bb5a0", GRID = "#223044";
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 Chart.defaults.color = "#93a1b5"; Chart.defaults.borderColor = GRID;
-Chart.defaults.font.family = '"IBM Plex Sans","Segoe UI",Arial,sans-serif';
+Chart.defaults.font.family = '"IBM Plex Sans","Segoe UI",Arial,sans-serif'; Chart.defaults.font.size = 11;
 const fmt = n => n.toLocaleString("en-US");
 const pc = (a, b) => b ? (a / b * 100).toFixed(1) : "0";
 const mean = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
@@ -60,18 +61,18 @@ const VIEWS = {
   flags: {tab: "HTTPS and @", title: "How many sites use HTTPS or an @ symbol?", cap: "Share of sites in each group with the feature. Many phishing sites use HTTPS too.",
     build: (a, p, l) => ({labels: ["Uses HTTPS", "Has an @ symbol"], sets: two([share(p, "https"), share(p, "at")], [share(l, "https"), share(l, "at")]), x: "Feature", y: "Share of sites (%)", ymax: 100})},
   ends: {tab: "Address endings", title: "Which address endings are most often phishing?", cap: "Among the 10 most common endings (TLDs), the share of sites that are phishing. This view ignores the site type filter.",
-    build: () => {
-      const by = {}; rows.filter(r => pass(r, st, true, true)).forEach(r => { const o = by[r.tld] ||= {n: 0, p: 0}; o.n++; o.p += r.ph; });
+    build: (a, p, l, f = st) => {
+      const by = {}; rows.filter(r => pass(r, f, true, true)).forEach(r => { const o = by[r.tld] ||= {n: 0, p: 0}; o.n++; o.p += r.ph; });
       const t = Object.entries(by).sort((a, b) => b[1].n - a[1].n).slice(0, 10).map(([k, o]) => ({k, n: o.n, s: +(o.p / o.n * 100).toFixed(1)})).sort((a, b) => b.s - a.s);
-      return {labels: t.map(o => `.${o.k} (${fmt(o.n)} sites)`), sets: [{data: t.map(o => o.s), backgroundColor: t.map(o => o.k === st.tld ? "#e7ecf3" : PH)}],
+      return {labels: t.map(o => `.${o.k} (${fmt(o.n)} sites)`), sets: [{data: t.map(o => o.s), backgroundColor: t.map(o => o.k === f.tld ? "#e7ecf3" : PH)}],
         x: "Phishing share (% of sites with that ending)", y: "Address ending (TLD)", h: true, nolegend: true};}}
 };
 const mkOpts = c => ({responsive: true, maintainAspectRatio: false, animation: reduce ? false : {duration: 500}, indexAxis: c.h ? "y" : "x",
-  plugins: {legend: {display: !c.nolegend, position: "bottom", labels: {boxWidth: 12}}},
+  plugins: {legend: {display: !c.nolegend, position: "top", align: "end", labels: {boxWidth: 10}}},
   scales: {x: {beginAtZero: true, max: c.h ? 100 : undefined, title: {display: true, text: c.x}, grid: {display: !!c.h, color: GRID}},
            y: {beginAtZero: true, max: c.h ? undefined : c.ymax, title: {display: true, text: c.y}, grid: {color: GRID}}}});
 const topTld = Object.entries(rows.reduce((m, r) => (m[r.tld] = (m[r.tld] || 0) + 1, m), {})).sort((a, b) => b[1] - a[1]).slice(0, 10);
-let chart = null;
+let chart = null, charts = [];
 
 function upd() {
   const all = rows.filter(r => pass(r, st)), ph = all.filter(r => r.ph), lg = all.filter(r => !r.ph), V = VIEWS[st.view];
@@ -105,44 +106,76 @@ function drawTable() {
 
 // ---- pages
 const pages = {}, mount = {};
-pages.login = () => `<section class="login"><h1 data-enter>Phishy Business</h1>
-  <p class="lead" data-enter style="--d:.1s">Because some links are looking kinda suspicious. Choose how you want to enter.</p>
-  <div class="roles" data-enter style="--d:.2s">
-    <div class="panel"><h2>User</h2><p>Browse the overview, explore the charts and read the findings.</p><p><button id="asUser" class="btn" type="button">Enter as user</button></p></div>
-    <form id="adminForm" class="panel"><h2>Admin</h2><p>Everything a user sees, plus the data table and pipeline details.</p>
-      <p><label for="pass">Passcode</label><input id="pass" type="password" autocomplete="off"></p><p id="passErr" class="err" role="alert"></p>
-      <button class="btn" type="submit">Sign in as admin</button></form></div></section>`;
+pages.login = () => `<div class="auth">
+  <section class="brand" aria-label="About Phishy Business">
+    <a class="logo" href="#/login"><span class="mark" aria-hidden="true"></span>Phishy Business</a>
+    <div>
+      <h1 data-enter>Do phishing links look different from real ones?</h1>
+      <p data-enter style="--d:.1s">A research platform that compares the web addresses of phishing and legitimate sites, so awareness teams know which signs to teach.</p>
+      <p class="url" data-enter style="--d:.2s" role="img" aria-label="Example of a suspicious address with no HTTPS, extra hyphens and an @ symbol"><mark style="--d:1s">http</mark>://secure<mark style="--d:1.3s">-</mark>login<mark style="--d:1.5s">-</mark>bank.verify.example.com/<mark style="--d:1.8s">@</mark>signin</p>
+      <div class="facts" data-enter style="--d:.3s"><div><b>${fmt(R.n)}</b><span>web addresses studied</span></div><div><b>${L.phish.median} vs ${L.legit.median}</b><span>median length, phishing vs legitimate</span></div></div>
+    </div>
+    <p class="fine">Because some links are looking kinda suspicious. Research by Unpaid Interns.</p>
+  </section>
+  <section class="authbox"><form id="authForm" novalidate>
+    <h2>Welcome</h2><p class="mutp">Choose an access level to open the dashboard.</p>
+    <fieldset class="lv"><legend class="vh">Access level</legend>
+      <label><input type="radio" name="level" value="user" checked><span>User<small>Overview, Explore, Findings and About</small></span></label>
+      <label><input type="radio" name="level" value="admin"><span>Admin<small>Everything above, plus the Data workspace</small></span></label></fieldset>
+    <div id="passBox" hidden><label for="pass" class="lbl">Admin passcode</label>
+      <div class="pw"><input id="pass" type="password" autocomplete="off" aria-describedby="passErr"><button id="showPass" class="btn ghost" type="button" aria-pressed="false">Show</button></div></div>
+    <p id="passErr" class="err" role="alert"></p>
+    <button id="go" class="btn block" type="submit">Continue as user</button>
+    <p class="fine">Access is checked in your browser only. It controls which pages you see and does not protect the data.</p>
+  </form></section></div>`;
 mount.login = () => {
-  const go = r => { role.set(r); location.hash = "#/overview"; route(); };
-  $("asUser").onclick = () => go("user");
-  $("adminForm").onsubmit = e => { e.preventDefault(); $("pass").value === ADMIN_PASSCODE ? go("admin") : ($("passErr").textContent = "That passcode does not match. Try again."); };
+  const f = $("authForm"), pass = $("pass"), err = $("passErr");
+  const lvl = () => f.querySelector("[name=level]:checked").value;
+  const sync = () => { const a = lvl() === "admin"; $("passBox").hidden = !a; $("go").textContent = a ? "Sign in as admin" : "Continue as user"; err.textContent = ""; pass.removeAttribute("aria-invalid"); };
+  f.querySelectorAll("[name=level]").forEach(r => r.addEventListener("change", sync));
+  $("showPass").onclick = e => { const show = pass.type === "password"; pass.type = show ? "text" : "password"; e.currentTarget.textContent = show ? "Hide" : "Show"; e.currentTarget.setAttribute("aria-pressed", show); };
+  f.onsubmit = e => {
+    e.preventDefault(); const admin = lvl() === "admin";
+    if (admin && pass.value !== ADMIN_PASSCODE) { err.textContent = pass.value ? "That passcode does not match. Try again." : "Enter the admin passcode."; pass.setAttribute("aria-invalid", "true"); pass.focus(); return; }
+    role.set(admin ? "admin" : "user"); location.hash = "#/overview"; route();
+  };
 };
 pages.locked = () => `<h1>Admin only</h1><p class="lead">This page is for admins. Sign out, then sign in with the admin passcode.</p><a class="btn" href="#/overview">Back to overview</a>`;
-pages.overview = () => `<section class="hero">
-  <h1 data-enter style="--d:.05s">Do phishing links look different from real ones?</h1>
-  <p class="lead" data-enter style="--d:.2s">We compared the web addresses of ${fmt(R.n)} websites to see which features give a fake link away.</p>
-  <p class="url" data-enter style="--d:.35s" role="img" aria-label="Example of a suspicious web address with no HTTPS, extra hyphens and an @ symbol"><mark style="--d:1.2s">http</mark>://secure<mark style="--d:1.6s">-</mark>login<mark style="--d:1.8s">-</mark>bank.verify<mark style="--d:2s">-</mark>account.example.com/<mark style="--d:2.4s">@</mark>signin</p>
-  <p class="flagged">Flagged above. No HTTPS, extra hyphens and an @ symbol.</p>
-  <div class="read">
-    <div class="panel"><span>Median URL length, in characters</span><b><i class="dot" style="background:${PH}"></i><i data-count="${L.phish.median}">${L.phish.median}</i> <i class="dot" style="background:${LG}"></i><i data-count="${L.legit.median}">${L.legit.median}</i></b><small>Phishing, then legitimate. Full dataset.</small></div>
-    <div class="panel"><span>Phishing sites that use HTTPS</span><b><i data-count="${R.binary.https.phish_pct}" data-sfx="%">${R.binary.https.phish_pct}%</i></b><small>Legitimate sites ${R.binary.https.legit_pct}%. Full dataset.</small></div>
-    <div class="panel"><span>Is the length gap real?</span><b class="badge">${T.significant ? "Significant" : "Not significant"}</b><small>p ${T.p < 0.001 ? "less than 0.001" : "= " + pText(T.p)}, ${T.effect_name} ${T.effect} (${T.effect_label}).</small></div>
-  </div>
-  <div class="actions"><a class="btn" href="#/explore">Explore the data</a><a class="btn ghost" href="#/findings">Read the findings</a></div>
-  <h2 class="sec">What is in the data</h2>
-  <div class="panel">
-    <div class="split" role="img" aria-label="${pc(R.n_phish, R.n)}% of sites are phishing and ${pc(R.n_legit, R.n)}% are legitimate"><span style="--w:${pc(R.n_phish, R.n)}%;background:${PH}"></span><span style="--w:${pc(R.n_legit, R.n)}%;background:${LG}"></span></div>
-    <p class="legend"><span><i class="dot" style="background:${PH}"></i>Phishing ${fmt(R.n_phish)} (${pc(R.n_phish, R.n)}%)</span><span><i class="dot" style="background:${LG}"></i>Legitimate ${fmt(R.n_legit)} (${pc(R.n_legit, R.n)}%)</span></p>
-    <p>Each site is one web address, marked as phishing or legitimate. We count its length, dots, hyphens, HTTPS and @ symbol straight from the address text.</p>
-  </div>
-  <h2 class="sec">What we checked</h2>
-  <div class="cards">
-    <a class="panel link" href="#/explore" data-go="length"><h2>URL length</h2><b>${L.phish.median} vs ${L.legit.median}</b><p>Median characters, phishing vs legitimate.</p><small>See the chart</small></a>
-    <a class="panel link" href="#/explore" data-go="chars"><h2>Dots and hyphens</h2><b>${hy.phish.mean} vs ${hy.legit.mean}</b><p>Hyphens per URL on average.</p><small>See the chart</small></a>
-    <a class="panel link" href="#/explore" data-go="flags"><h2>HTTPS and @</h2><b>${R.binary.https.phish_pct}% vs ${R.binary.https.legit_pct}%</b><p>Sites that use HTTPS.</p><small>See the chart</small></a>
-    <a class="panel link" href="#/explore" data-go="ends"><h2>Address endings</h2><b>Top 10</b><p>The most common endings and how often each is phishing.</p><small>See the chart</small></a>
-  </div></section>`;
-mount.overview = () => document.querySelectorAll("[data-go]").forEach(a => a.addEventListener("click", () => { st.view = a.dataset.go; }));
+const tag = full => `<span class="src${full ? " full" : ""}">${full ? "Full dataset" : "Sample"}</span>`;
+const kpi = (cls, lbl, val, sub) => `<div class="kpi ${cls}"><span class="lbl">${lbl}</span><div class="v">${val}</div><small>${sub}</small></div>`;
+const card = (id, title, full, cap, cls = "") => `<article class="panel ${cls}"><header><h2>${title}</h2>${tag(full)}</header><div class="chart ${cls ? "tall" : ""}"><canvas id="${id}" role="img" aria-label="${title}. ${cap}"></canvas></div><p class="cap">${cap}</p></article>`;
+pages.overview = () => {
+  const dif = +(L.phish.median - L.legit.median).toFixed(1), pp = pc(R.n_phish, R.n), lp = pc(R.n_legit, R.n);
+  return `<div class="ph"><div><h1>Overview</h1><p>Are phishing URLs longer than legitimate URLs?</p></div>
+    <div class="meta">${tag(true)} key numbers and findings, ${fmt(R.n)} sites ${tag(false)} distribution and endings, ${fmt(S.meta.size)} sites</div></div>
+  <section class="kpis" aria-label="Key numbers from the full dataset">
+    ${kpi("", "Records", fmt(R.n), `<div class="split" role="img" aria-label="${pp}% phishing, ${lp}% legitimate"><span style="--w:${pp}%;background:var(--ph)"></span><span style="--w:${lp}%;background:var(--lg)"></span></div>`)}
+    ${kpi("ph", "Phishing", fmt(R.n_phish), `${pp}% of records`)}
+    ${kpi("lg", "Legitimate", fmt(R.n_legit), `${lp}% of records`)}
+    ${kpi("", "Median URL length", `${L.phish.median} vs ${L.legit.median}`, dif === 0 ? "No gap in medians" : `Phishing is ${Math.abs(dif)} characters ${dif > 0 ? "longer" : "shorter"}`)}
+    ${kpi("", "Length test", `<span class="badge">${T.significant ? "Significant" : "Not significant"}</span>`, `${T.effect_name} ${T.effect}, ${T.effect_label} effect`)}
+  </section>
+  <section class="dash">
+    ${card("o-len", "URL length distribution", false, `Sites by URL length. The last bar holds every URL of ${CAP} characters or more.`, "span2")}
+    <article class="panel"><header><h2>Main finding</h2>${tag(true)}</header><p class="big">${T.conclusion}</p>
+      <dl class="stats"><div><dt>Test</dt><dd>${T.name}</dd></div><div><dt>p-value</dt><dd>${pText(T.p)}</dd></div><div><dt>Threshold</dt><dd>${T.alpha}</dd></div><div><dt>Effect size</dt><dd>${T.effect_name} ${T.effect}</dd></div></dl>
+      <span class="badge">${T.significant ? "Statistically significant" : "Not significant"}</span> <span class="badge mut">${T.effect_label} effect</span>
+      <p class="note">${keep}</p></article>
+  </section>
+  <section class="dash">
+    ${card("o-flag", "HTTPS and @ symbol", true, "Share of each group with the feature, from all sites.")}
+    ${card("o-char", "Dots and hyphens", true, "Average dots and hyphens per URL, from all sites.")}
+    ${card("o-tld", "Phishing share by ending", false, "Phishing share among the 10 most common address endings (TLDs).")}
+  </section>`;
+};
+mount.overview = () => {
+  const ph = rows.filter(r => r.ph), lg = rows.filter(r => !r.ph), b = R.binary, d = R.numeric.dots;
+  const add = (id, c) => charts.push(new Chart($(id), {type: "bar", data: {labels: c.labels, datasets: c.sets}, options: mkOpts(c)}));
+  add("o-len", VIEWS.length.build(rows, ph, lg));
+  add("o-flag", {labels: ["Uses HTTPS", "Has an @ symbol"], sets: two([b.https.phish_pct, b.at_symbol.phish_pct], [b.https.legit_pct, b.at_symbol.legit_pct]), x: "Feature", y: "Share of sites (%)", ymax: 100});
+  add("o-char", {labels: ["Dots", "Hyphens"], sets: two([d.phish.mean, hy.phish.mean], [d.legit.mean, hy.legit.mean]), x: "Character counted", y: "Average per URL"});
+  add("o-tld", VIEWS.ends.build(null, null, null, {type: "all", https: "all", min: 0, max: CAP, tld: "all"}));
+};
 pages.explore = () => `<h1>Explore the data</h1><p class="lead">Pick a view, then narrow it with the filters. Charts use a random sample of ${fmt(S.meta.size)} sites.</p>
   <div class="seg" role="group" aria-label="Chart views">${Object.entries(VIEWS).map(([k, v]) => `<button type="button" data-v="${k}" aria-pressed="false">${v.tab}</button>`).join("")}</div>
   <div class="filters" role="group" aria-label="Filters">
@@ -199,12 +232,12 @@ mount.data = () => {
 };
 
 // ---- AI assistant (talks to the Cloudflare Worker, never to Groq directly)
-const intro = {role: "assistant", local: true, content: "Hi. I can explain the findings, walk you through the chart you are on, or look at a link you paste. I cannot open links, so I judge them only from how they look."};
+const intro = {role: "assistant", local: true, content: `Hi, I am ${AI_NAME}. I can explain the findings, walk you through the chart you are on, or look at a link you paste. I cannot open links, so I judge them only from how they look.`};
 let chat = [intro], busy = false;
-const fab = Object.assign(document.createElement("button"), {id: "askBtn", type: "button", className: "btn fab", textContent: "Ask AI", hidden: true});
+const fab = Object.assign(document.createElement("button"), {id: "askBtn", type: "button", className: "btn fab", textContent: "Ask " + AI_NAME, hidden: true});
 fab.setAttribute("aria-expanded", "false"); fab.setAttribute("aria-controls", "chat");
 const box = document.createElement("section"); box.id = "chat"; box.hidden = true; box.setAttribute("aria-label", "AI assistant");
-box.innerHTML = `<header><h2>Ask AI</h2><button id="chatClose" class="btn ghost" type="button">Close</button></header>
+box.innerHTML = `<header><h2>${AI_NAME}</h2><button id="chatClose" class="btn ghost" type="button">Close</button></header>
   <div id="msgs" aria-live="polite"></div>
   <div id="chips"><button type="button">Explain this page</button><button type="button">What should I look out for?</button><button type="button" data-fill="Check this link ">Check a link</button></div>
   <form id="chatForm"><label for="chatIn" class="vh">Your question</label><textarea id="chatIn" rows="2" maxlength="1500" placeholder="Ask about the findings or paste a link"></textarea><button class="btn" type="submit">Send</button></form>
@@ -273,11 +306,12 @@ function route() {
   let page = !r ? "login" : NAV.some(n => n[0] === name) ? name : "overview";
   if (page === "data" && r !== "admin") page = "locked";
   if (chart) { chart.destroy(); chart = null; }
+  charts.forEach(c => c.destroy()); charts = [];
   document.querySelector(".shell").classList.toggle("out", !r);
   v.innerHTML = pages[page]();
   v.classList.remove("enter"); void v.offsetWidth; v.classList.add("enter");
   $("links").innerHTML = NAV.filter(n => !n[2] || n[2] === r).map(n => `<a href="#/${n[0]}"${n[0] === page ? ' aria-current="page"' : ""}>${n[1]}</a>`).join("");
-  $("who").textContent = r ? `Signed in as ${r}` : "";
+  $("who").textContent = r ? `${r === "admin" ? "Admin" : "User"} role` : "";
   $("out").hidden = !r;
   fab.hidden = !r; if (!r) { box.hidden = true; fab.setAttribute("aria-expanded", "false"); resetChat(); }
   document.title = (page === "login" ? "Sign in" : (NAV.find(n => n[0] === page) || [0, "Admin only"])[1]) + " | Phishy Business";
