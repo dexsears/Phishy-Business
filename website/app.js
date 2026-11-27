@@ -13,11 +13,19 @@ const fail = m => { $("error").textContent = m; $("error").hidden = false; };
 if (!R || !S) return fail("Data files are missing. Run analysis.py to create results.js and sample.js, then refresh.");
 if (typeof Chart === "undefined") return fail("The chart library did not load. Check your internet connection and refresh.");
 
-const PH = "#ff6a3d", LG = "#2bb5a0", GRID = "#223044";
+const PH = "#ff6a3d", LG = "#2bb5a0", GRID = "#1b2b42";
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-Chart.defaults.color = "#93a1b5"; Chart.defaults.borderColor = GRID;
+// Pause motion button. The "calm" class on <html> stops every animation (see styles.css).
+const htmlEl = document.documentElement;
+try { if (sessionStorage.getItem("pb-calm") === "1") htmlEl.classList.add("calm"); } catch {}
+const calm = () => reduce || htmlEl.classList.contains("calm");
+Chart.defaults.color = "#93a4bb"; Chart.defaults.borderColor = GRID;
+Chart.defaults.elements.bar.borderRadius = 4;   // softer bars
+Chart.defaults.plugins.legend.labels.usePointStyle = true;
+Object.assign(Chart.defaults.plugins.tooltip, {backgroundColor: "#0a1424", borderColor: "#2c4260", borderWidth: 1, padding: 10, cornerRadius: 6, titleColor: "#eaf0f8", bodyColor: "#c5d0df"});
 Chart.defaults.font.family = '"IBM Plex Sans","Segoe UI",Arial,sans-serif'; Chart.defaults.font.size = 11;
 const fmt = n => n.toLocaleString("en-US");
+const num = n => `<span data-count="${n}">${fmt(n)}</span>`;   // number that counts up when it appears
 const pc = (a, b) => b ? (a / b * 100).toFixed(1) : "0";
 const mean = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
 const median = a => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
@@ -67,12 +75,15 @@ const VIEWS = {
       return {labels: t.map(o => `.${o.k} (${fmt(o.n)} sites)`), sets: [{data: t.map(o => o.s), backgroundColor: t.map(o => o.k === f.tld ? "#e7ecf3" : PH)}],
         x: "Phishing share (% of sites with that ending)", y: "Address ending (TLD)", h: true, nolegend: true};}}
 };
-const mkOpts = c => ({responsive: true, maintainAspectRatio: false, animation: reduce ? false : {duration: 500}, indexAxis: c.h ? "y" : "x",
+// base = wait before the chart starts (ms). slow = long staggered draw (first draw) or quick update (filters).
+const mkOpts = (c, base = 0, slow = true) => ({responsive: true, maintainAspectRatio: false, indexAxis: c.h ? "y" : "x",
+  animation: calm() ? false : {duration: slow ? 1700 : 600, easing: "easeOutQuart",
+    delay: x => slow && x.type === "data" && x.mode === "default" ? base + x.dataIndex * 55 + x.datasetIndex * 160 : 0},
   plugins: {legend: {display: !c.nolegend, position: "top", align: "end", labels: {boxWidth: 10}}},
   scales: {x: {beginAtZero: true, max: c.h ? 100 : undefined, title: {display: true, text: c.x}, grid: {display: !!c.h, color: GRID}},
            y: {beginAtZero: true, max: c.h ? undefined : c.ymax, title: {display: true, text: c.y}, grid: {color: GRID}}}});
 const topTld = Object.entries(rows.reduce((m, r) => (m[r.tld] = (m[r.tld] || 0) + 1, m), {})).sort((a, b) => b[1] - a[1]).slice(0, 10);
-let chart = null, charts = [];
+let chart = null, charts = [], firstDraw = true;
 
 function upd() {
   const all = rows.filter(r => pass(r, st)), ph = all.filter(r => r.ph), lg = all.filter(r => !r.ph), V = VIEWS[st.view];
@@ -84,7 +95,7 @@ function upd() {
   $("vTitle").textContent = V.title; $("vCap").textContent = V.cap; $("cv").setAttribute("aria-label", V.title);
   $("chartBox").classList.toggle("is-empty", !all.length);
   const c = V.build(all, ph, lg);
-  chart.data.labels = c.labels; chart.data.datasets = c.sets; chart.options = mkOpts(c); chart.update();
+  chart.data.labels = c.labels; chart.data.datasets = c.sets; const slow = firstDraw; firstDraw = false; chart.options = mkOpts(c, 500, slow); chart.update();
 }
 
 // ---- admin table
@@ -92,14 +103,14 @@ const COLS = [["ph", "Type"], ["len", "URL length"], ["dots", "Dots"], ["hy", "H
 const cell = (r, k) => k === "ph" ? (r.ph ? "Phishing" : "Legitimate") : (k === "https" || k === "at") ? (r[k] ? "Yes" : "No") : r[k];
 const d = {q: "", type: "all", key: "len", dir: -1, page: 0}, PS = 20;
 let listNow = [];
-function drawTable() {
+function drawTable(anim) {
   const q = d.q.trim().toLowerCase();
   listNow = rows.filter(r => (d.type === "all" || (d.type === "phish") === r.ph) && (!q || r.tld.includes(q)))
     .sort((a, b) => d.dir * (a[d.key] > b[d.key] ? 1 : a[d.key] < b[d.key] ? -1 : 0));
   const pages = Math.max(1, Math.ceil(listNow.length / PS)); d.page = Math.min(d.page, pages - 1);
   const slice = listNow.slice(d.page * PS, (d.page + 1) * PS);
   $("tbl").innerHTML = `<table class="tbl"><thead><tr>${COLS.map(([k, l]) => `<th scope="col" aria-sort="${d.key === k ? (d.dir > 0 ? "ascending" : "descending") : "none"}"><button data-k="${k}">${l}</button></th>`).join("")}</tr></thead>
-    <tbody>${slice.map(r => `<tr>${COLS.map(([k]) => `<td>${cell(r, k)}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="7">Nothing suspicious here. Yet. No records match.</td></tr>`}</tbody></table>`;
+    <tbody>${slice.map((r, i) => `<tr${anim ? ` class="in" style="--i:${i}"` : ""}>${COLS.map(([k]) => `<td>${cell(r, k)}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="7">Nothing suspicious here. Yet. No records match.</td></tr>`}</tbody></table>`;
   $("pg").textContent = listNow.length ? `${d.page * PS + 1}-${d.page * PS + slice.length} of ${fmt(listNow.length)}` : "0 records";
   $("prev").disabled = d.page === 0; $("next").disabled = d.page >= pages - 1;
 }
@@ -112,20 +123,20 @@ pages.login = () => `<div class="auth">
     <div>
       <h1 data-enter>Do phishing links look different from real ones?</h1>
       <p data-enter style="--d:.1s">A research platform that compares the web addresses of phishing and legitimate sites, so awareness teams know which signs to teach.</p>
-      <p class="url" data-enter style="--d:.2s" role="img" aria-label="Example of a suspicious address with no HTTPS, extra hyphens and an @ symbol"><mark style="--d:1s">http</mark>://secure<mark style="--d:1.3s">-</mark>login<mark style="--d:1.5s">-</mark>bank.verify.example.com/<mark style="--d:1.8s">@</mark>signin</p>
-      <div class="facts" data-enter style="--d:.3s"><div><b>${fmt(R.n)}</b><span>web addresses studied</span></div><div><b>${L.phish.median} vs ${L.legit.median}</b><span>median length, phishing vs legitimate</span></div></div>
+      <p class="url" data-enter style="--d:.2s" role="img" aria-label="Example of a suspicious address with no HTTPS, extra hyphens and an @ symbol"><mark style="--d:1.4s">http</mark>://secure<mark style="--d:2s">-</mark>login<mark style="--d:2.4s">-</mark>bank.verify.example.com/<mark style="--d:3s">@</mark>signin</p>
+      <div class="facts" data-enter style="--d:.3s"><div><b>${num(R.n)}</b><span>web addresses studied</span></div><div><b>${num(L.phish.median)} vs ${num(L.legit.median)}</b><span>median length, phishing vs legitimate</span></div></div>
     </div>
     <p class="fine">Because some links are looking kinda suspicious. Research by Unpaid Interns.</p>
   </section>
   <section class="authbox"><form id="authForm" novalidate>
-    <h2>Welcome</h2><p class="mutp">Choose an access level to open the dashboard.</p>
-    <fieldset class="lv"><legend class="vh">Access level</legend>
+    <h2 data-enter>Welcome</h2><p class="mutp" data-enter style="--d:.1s">Choose an access level to open the dashboard.</p>
+    <fieldset class="lv" data-enter style="--d:.25s"><legend class="vh">Access level</legend>
       <label><input type="radio" name="level" value="user" checked><span>User<small>Overview, Explore, Findings and About</small></span></label>
       <label><input type="radio" name="level" value="admin"><span>Admin<small>Everything above, plus the Data workspace</small></span></label></fieldset>
     <div id="passBox" hidden><label for="pass" class="lbl">Admin passcode</label>
       <div class="pw"><input id="pass" type="password" autocomplete="off" aria-describedby="passErr"><button id="showPass" class="btn ghost" type="button" aria-pressed="false">Show</button></div></div>
     <p id="passErr" class="err" role="alert"></p>
-    <button id="go" class="btn block" type="submit">Continue as user</button>
+    <button id="go" class="btn block" type="submit" data-enter style="--d:.4s">Continue as user</button>
     <p class="fine">Access is checked in your browser only. It controls which pages you see and does not protect the data.</p>
   </form></section></div>`;
 mount.login = () => {
@@ -146,14 +157,14 @@ const kpi = (cls, lbl, val, sub) => `<div class="kpi ${cls}"><span class="lbl">$
 const card = (id, title, full, cap, cls = "") => `<article class="panel ${cls}"><header><h2>${title}</h2>${tag(full)}</header><div class="chart ${cls ? "tall" : ""}"><canvas id="${id}" role="img" aria-label="${title}. ${cap}"></canvas></div><p class="cap">${cap}</p></article>`;
 pages.overview = () => {
   const dif = +(L.phish.median - L.legit.median).toFixed(1), pp = pc(R.n_phish, R.n), lp = pc(R.n_legit, R.n);
-  return `<div class="ph"><div><h1>Overview</h1><p>Are phishing URLs longer than legitimate URLs?</p></div>
+  return `<div class="pagehead"><div><h1>Overview</h1><p>Are phishing URLs longer than legitimate URLs?</p></div>
     <div class="meta">${tag(true)} key numbers and findings, ${fmt(R.n)} sites ${tag(false)} distribution and endings, ${fmt(S.meta.size)} sites</div></div>
   <section class="kpis" aria-label="Key numbers from the full dataset">
-    ${kpi("", "Records", fmt(R.n), `<div class="split" role="img" aria-label="${pp}% phishing, ${lp}% legitimate"><span style="--w:${pp}%;background:var(--ph)"></span><span style="--w:${lp}%;background:var(--lg)"></span></div>`)}
-    ${kpi("ph", "Phishing", fmt(R.n_phish), `${pp}% of records`)}
-    ${kpi("lg", "Legitimate", fmt(R.n_legit), `${lp}% of records`)}
-    ${kpi("", "Median URL length", `${L.phish.median} vs ${L.legit.median}`, dif === 0 ? "No gap in medians" : `Phishing is ${Math.abs(dif)} characters ${dif > 0 ? "longer" : "shorter"}`)}
-    ${kpi("", "Length test", `<span class="badge">${T.significant ? "Significant" : "Not significant"}</span>`, `${T.effect_name} ${T.effect}, ${T.effect_label} effect`)}
+    ${kpi("", "Records", num(R.n), `<div class="split" role="img" aria-label="${pp}% phishing, ${lp}% legitimate"><span style="--w:${pp}%;background:var(--ph)"></span><span style="--w:${lp}%;background:var(--lg)"></span></div>`)}
+    ${kpi("ph", "Phishing", num(R.n_phish), `${pp}% of records`)}
+    ${kpi("lg", "Legitimate", num(R.n_legit), `${lp}% of records`)}
+    ${kpi("", "Median URL length", `${num(L.phish.median)} vs ${num(L.legit.median)}`, dif === 0 ? "No gap in medians" : `Phishing is ${Math.abs(dif)} characters ${dif > 0 ? "longer" : "shorter"}`)}
+    ${kpi("", "Length test", `<span class="badge${T.significant ? " live" : ""}">${T.significant ? "Significant" : "Not significant"}</span>`, `${T.effect_name} ${T.effect}, ${T.effect_label} effect`)}
   </section>
   <section class="dash">
     ${card("o-len", "URL length distribution", false, `Sites by URL length. The last bar holds every URL of ${CAP} characters or more.`, "span2")}
@@ -170,7 +181,8 @@ pages.overview = () => {
 };
 mount.overview = () => {
   const ph = rows.filter(r => r.ph), lg = rows.filter(r => !r.ph), b = R.binary, d = R.numeric.dots;
-  const add = (id, c) => charts.push(new Chart($(id), {type: "bar", data: {labels: c.labels, datasets: c.sets}, options: mkOpts(c)}));
+  let n = 0;   // each chart draws when its card scrolls into view, one after another
+  const add = (id, c) => { const base = 200 + n++ * 150; whenSeen($(id), () => charts.push(new Chart($(id), {type: "bar", data: {labels: c.labels, datasets: c.sets}, options: mkOpts(c, base)}))); };
   add("o-len", VIEWS.length.build(rows, ph, lg));
   add("o-flag", {labels: ["Uses HTTPS", "Has an @ symbol"], sets: two([b.https.phish_pct, b.at_symbol.phish_pct], [b.https.legit_pct, b.at_symbol.legit_pct]), x: "Feature", y: "Share of sites (%)", ymax: 100});
   add("o-char", {labels: ["Dots", "Hyphens"], sets: two([d.phish.mean, hy.phish.mean], [d.legit.mean, hy.legit.mean]), x: "Character counted", y: "Average per URL"});
@@ -220,11 +232,11 @@ pages.data = () => `<h1>Data</h1><p class="lead">Admin view of the pipeline and 
   <div class="tw" id="tbl"></div>
   <div class="pager"><button id="prev" class="btn ghost" type="button">Previous</button><span id="pg" role="status"></span><button id="next" class="btn ghost" type="button">Next</button></div>`;
 mount.data = () => {
-  drawTable();
+  drawTable(true);
   $("dq").oninput = e => { d.q = e.target.value; d.page = 0; drawTable(); };
   $("dt").onchange = e => { d.type = e.target.value; d.page = 0; drawTable(); };
-  $("prev").onclick = () => { d.page--; drawTable(); }; $("next").onclick = () => { d.page++; drawTable(); };
-  $("tbl").onclick = e => { const k = e.target.dataset.k; if (!k) return; d.dir = d.key === k ? -d.dir : 1; d.key = k; drawTable(); $("tbl").querySelector(`[data-k="${k}"]`).focus(); };
+  $("prev").onclick = () => { d.page--; drawTable(true); }; $("next").onclick = () => { d.page++; drawTable(true); };
+  $("tbl").onclick = e => { const k = e.target.dataset.k; if (!k) return; d.dir = d.key === k ? -d.dir : 1; d.key = k; drawTable(true); $("tbl").querySelector(`[data-k="${k}"]`).focus(); };
   $("csv").onclick = () => {
     const csv = "type,url_length,dots,hyphens,https,at_symbol,tld\n" + listNow.map(r => [r.ph ? "phishing" : "legitimate", r.len, r.dots, r.hy, +r.https, +r.at, r.tld].join(",")).join("\n");
     const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], {type: "text/csv"})); a.download = "phishy-business-sample.csv"; a.click(); URL.revokeObjectURL(a.href);
@@ -293,18 +305,48 @@ $("chips").onclick = e => { const b = e.target.closest("button"); if (!b) return
 // ---- router
 const NAV = [["overview", "Overview"], ["explore", "Explore"], ["findings", "Findings"], ["about", "About"], ["data", "Data", "admin"]];
 let prev = null;
-function countUp(root) {
+let obs = [];   // observers for the current page, cleared on every route change
+// Run fn the first time el is on screen (so charts draw when you can see them).
+function whenSeen(el, fn) {
+  if (!el) return;
+  if (calm() || !("IntersectionObserver" in window)) return fn();
+  const o = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { o.disconnect(); fn(); } }, {threshold: .3});
+  o.observe(el); obs.push(o);
+}
+// Numbers with data-count rise from 0 to the real value from results.js.
+function countUp(root, delay = 0) {
   root.querySelectorAll("[data-count]").forEach(el => {
-    if (reduce) return;
-    const to = +el.dataset.count, dec = (el.dataset.count.split(".")[1] || "").length, sfx = el.dataset.sfx || "", t0 = performance.now();
-    const step = t => { const k = Math.min(1, (t - t0) / 900), e = 1 - Math.pow(1 - k, 3); el.textContent = (to * e).toFixed(dec) + sfx; if (k < 1) requestAnimationFrame(step); };
-    requestAnimationFrame(step);
+    if (calm() || el.dataset.done) return;
+    const raw = el.dataset.count, to = +raw, dec = (raw.split(".")[1] || "").length;
+    const out = n => dec ? n.toFixed(dec) : Math.round(n).toLocaleString("en-US");
+    el.dataset.done = "1"; el.textContent = out(0);
+    setTimeout(() => {
+      const t0 = performance.now();
+      const step = t => { const k = Math.min(1, (t - t0) / 1900), e = k === 1 ? 1 : 1 - Math.pow(2, -10 * k); el.textContent = out(to * e); if (k < 1) requestAnimationFrame(step); };
+      requestAnimationFrame(step);
+    }, delay);
   });
+}
+// Blocks rise in one after another as they come into view. Classes are removed afterwards so hover effects stay fast.
+function reveal(root) {
+  if (calm() || !("IntersectionObserver" in window)) return;
+  const sel = ".pagehead, #view > h1, #view > .lead, .kpis > *, .dash > *, .steps li, .seg, .filters, .read, #view > .panel, .kv > *, .row, .tw, .pager, .prose > *, #view > .btn";
+  const items = [...new Set(root.querySelectorAll(sel))];
+  const io = new IntersectionObserver(es => {
+    es.filter(e => e.isIntersecting).forEach((e, i) => {
+      const el = e.target, wait = i * 120; io.unobserve(el);
+      el.style.setProperty("--td", wait + "ms"); el.classList.add("in"); countUp(el, wait + 300);
+      setTimeout(() => { el.classList.remove("rv", "in"); el.style.removeProperty("--td"); }, wait + 1400);
+    });
+  }, {threshold: .12});
+  items.forEach(el => { el.classList.add("rv"); io.observe(el); });
+  obs.push(io);
 }
 function route() {
   const r = role.get(), name = location.hash.replace(/^#\/?/, "") || "overview", v = $("view");
   let page = !r ? "login" : NAV.some(n => n[0] === name) ? name : "overview";
   if (page === "data" && r !== "admin") page = "locked";
+  obs.forEach(o => o.disconnect()); obs = []; firstDraw = true;
   if (chart) { chart.destroy(); chart = null; }
   charts.forEach(c => c.destroy()); charts = [];
   document.querySelector(".shell").classList.toggle("out", !r);
@@ -315,12 +357,23 @@ function route() {
   $("out").hidden = !r;
   fab.hidden = !r; if (!r) { box.hidden = true; fab.setAttribute("aria-expanded", "false"); resetChat(); }
   document.title = (page === "login" ? "Sign in" : (NAV.find(n => n[0] === page) || [0, "Admin only"])[1]) + " | Phishy Business";
-  countUp(v); (mount[page] || (() => {}))();
+  if (page === "login") countUp(v, 900); else reveal(v);
+  (mount[page] || (() => {}))();
   window.scrollTo(0, 0);
   if (prev && prev !== page) v.focus({preventScroll: true});
   prev = page;
 }
 $("out").onclick = () => { role.set(null); location.hash = "#/login"; route(); };
 window.addEventListener("hashchange", route);
+// motion button, top bar shadow on scroll, soft light that follows the pointer over cards
+const mo = $("mo"), syncMo = () => { mo.textContent = htmlEl.classList.contains("calm") ? "Play motion" : "Pause motion"; };
+mo.hidden = reduce; syncMo();
+mo.onclick = () => { htmlEl.classList.toggle("calm"); try { sessionStorage.setItem("pb-calm", htmlEl.classList.contains("calm") ? "1" : "0"); } catch {} syncMo(); };
+const bar = document.querySelector(".top");
+addEventListener("scroll", () => bar.classList.toggle("lifted", scrollY > 4), {passive: true});
+$("view").addEventListener("pointermove", e => {
+  const c = e.target.closest(".panel, .kpi"); if (!c) return; const r = c.getBoundingClientRect();
+  c.style.setProperty("--mx", e.clientX - r.left + "px"); c.style.setProperty("--my", e.clientY - r.top + "px");
+});
 route();
 })();
