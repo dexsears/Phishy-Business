@@ -42,7 +42,7 @@ const reco = T.significant
   ? `Treat a very long link with extra care${hy.phish.mean > hy.legit.mean ? ", especially one with several hyphens" : ""}. Do not trust a link only because it starts with https, since ${R.binary.https.phish_pct}% of phishing sites in this data use it. Awareness teams can teach students to check link length and the web address ending before they click.`
   : `URL length alone did not separate the two groups, so training should not rely on it. Look at hyphens and HTTPS for other warning signs. Check these findings on a larger and more varied dataset.`;
 const cite = `Prasad &amp; Chandra (2024), PhiUSIIL Phishing URL Dataset, UCI Machine Learning Repository, CC BY 4.0, <a href="https://doi.org/10.1016/j.cose.2023.103545">doi.org/10.1016/j.cose.2023.103545</a>`;
-$("foot").innerHTML = `Data ${cite}. Group Unpaid Interns.`;
+$("foot").innerHTML = `Data ${cite}. <span class="team-sm"><svg class="badge-ic" viewBox="0 0 32 32" width="16" height="16" aria-hidden="true" focusable="false"><path d="M12 1v7M20 1v7" stroke="#e0b862" stroke-width="1.4" stroke-linecap="round" fill="none"/><rect x="13" y="5" width="6" height="4" rx="1.2" fill="#e0b862"/><rect x="5" y="8" width="22" height="22" rx="3.5" fill="#14243a" stroke="#e0b862" stroke-width="1.4"/><circle cx="16" cy="16.5" r="3.2" fill="#e0b862"/><path d="M9.8 26c0-3.6 2.8-5.4 6.2-5.4s6.2 1.8 6.2 5.4Z" fill="#e0b862"/></svg>Group Unpaid Interns</span>.`;
 
 // ---- session and roles
 let mem = null;
@@ -119,14 +119,14 @@ function drawTable(anim) {
 const pages = {}, mount = {};
 pages.login = () => `<div class="auth">
   <section class="brand" aria-label="About Phishy Business">
-    <a class="logo" href="#/login"><span class="mark" aria-hidden="true"></span>Phishy Business</a>
+    <a class="logo" href="#/login"><svg class="fish" viewBox="0 0 32 32" width="26" height="26" aria-hidden="true" focusable="false"><path d="M9.5 1.5v7.2" fill="none" stroke="#e0b862" stroke-width="1.4" stroke-linecap="round"/><path d="M9.5 8.7c0 3-2.9 2.6-2.9.6" fill="none" stroke="#e0b862" stroke-width="1.4" stroke-linecap="round"/><g class="tail"><path d="M20 17.5L29.5 10.5Q27.2 17.5 29.5 24.5Z" fill="#2bb5a0"/></g><path d="M2.5 17.5C5.5 11 13 9.6 19 13l2.2 2.3v4.4L19 22c-6 3.4-13.5 2.2-16.5-4.5Z" fill="#ff6a3d"/><path d="M12.5 14.3Q14.7 17.5 12.5 20.7" fill="none" stroke="#08101c" stroke-opacity=".35" stroke-width="1.2" stroke-linecap="round"/><circle cx="7.8" cy="16.3" r="1.6" fill="#08101c"/><circle cx="8.3" cy="15.8" r=".5" fill="#fff"/></svg>Phishy Business</a>
     <div>
       <h1 data-enter>Do phishing links look different from real ones?</h1>
       <p data-enter style="--d:.1s">A research platform that compares the web addresses of phishing and legitimate sites, so awareness teams know which signs to teach.</p>
       <p class="url" data-enter style="--d:.2s" role="img" aria-label="Example of a suspicious address with no HTTPS, extra hyphens and an @ symbol"><mark style="--d:1.4s">http</mark>://secure<mark style="--d:2s">-</mark>login<mark style="--d:2.4s">-</mark>bank.verify.example.com/<mark style="--d:3s">@</mark>signin</p>
       <div class="facts" data-enter style="--d:.3s"><div><b>${num(R.n)}</b><span>web addresses studied</span></div><div><b>${num(L.phish.median)} vs ${num(L.legit.median)}</b><span>median length, phishing vs legitimate</span></div></div>
     </div>
-    <p class="fine">Because some links are looking kinda suspicious. Research by Unpaid Interns.</p>
+    <div class="team" data-enter style="--d:.5s"><svg class="badge-ic" viewBox="0 0 32 32" width="30" height="30" aria-hidden="true" focusable="false"><path d="M12 1v7M20 1v7" stroke="#e0b862" stroke-width="1.4" stroke-linecap="round" fill="none"/><rect x="13" y="5" width="6" height="4" rx="1.2" fill="#e0b862"/><rect x="5" y="8" width="22" height="22" rx="3.5" fill="#14243a" stroke="#e0b862" stroke-width="1.4"/><circle cx="16" cy="16.5" r="3.2" fill="#e0b862"/><path d="M9.8 26c0-3.6 2.8-5.4 6.2-5.4s6.2 1.8 6.2 5.4Z" fill="#e0b862"/></svg><span><b>Unpaid Interns</b><small>Research team. Because some links are looking kinda suspicious.</small></span></div>
   </section>
   <section class="authbox"><form id="authForm" novalidate>
     <h2 data-enter>Welcome</h2><p class="mutp" data-enter style="--d:.1s">Choose an access level to open the dashboard.</p>
@@ -188,8 +188,8 @@ mount.overview = () => {
   add("o-char", {labels: ["Dots", "Hyphens"], sets: two([d.phish.mean, hy.phish.mean], [d.legit.mean, hy.legit.mean]), x: "Character counted", y: "Average per URL"});
   add("o-tld", VIEWS.ends.build(null, null, null, {type: "all", https: "all", min: 0, max: CAP, tld: "all"}));
 };
-pages.explore = () => `<h1>Explore the data</h1><p class="lead">Pick a view, then narrow it with the filters. Charts use a random sample of ${fmt(S.meta.size)} sites.</p>
-  <div class="seg" role="group" aria-label="Chart views">${Object.entries(VIEWS).map(([k, v]) => `<button type="button" data-v="${k}" aria-pressed="false">${v.tab}</button>`).join("")}</div>
+pages.explore = () => `<h1 class="mid">Explore the data</h1><p class="lead mid">Pick a view, then narrow it with the filters. Charts use a random sample of ${fmt(S.meta.size)} sites.</p>
+  <div class="seg mid" role="group" aria-label="Chart views">${Object.entries(VIEWS).map(([k, v]) => `<button type="button" data-v="${k}" aria-pressed="false">${v.tab}</button>`).join("")}</div>
   <div class="filters" role="group" aria-label="Filters">
     <div><label for="fType">Site type</label><select id="fType"><option value="all">All sites</option><option value="phish">Phishing</option><option value="legit">Legitimate</option></select></div>
     <div><label for="fHttps">Uses HTTPS</label><select id="fHttps"><option value="all">All</option><option value="yes">Yes</option><option value="no">No</option></select></div>
@@ -261,7 +261,14 @@ function paint() {
   $("msgs").scrollTop = 1e9;
 }
 function resetChat() { chat = [intro]; busy = false; paint(); }
-function setChat(open) { box.hidden = !open; fab.setAttribute("aria-expanded", open); if (open) { paint(); $("chatIn").focus(); } else fab.focus(); }
+let closing = null;
+function setChat(open) {   // closing plays a short exit animation before the panel is hidden
+  clearTimeout(closing); box.classList.remove("closing"); fab.setAttribute("aria-expanded", open);
+  if (open) { box.hidden = false; paint(); $("chatIn").focus(); return; }
+  fab.focus();
+  if (calm() || box.hidden) { box.hidden = true; return; }
+  box.classList.add("closing"); closing = setTimeout(() => { box.hidden = true; box.classList.remove("closing"); }, 450);
+}
 function ctx(text) {   // facts sent with each question. Every number comes from results.js or the sample.
   const d = R.numeric.dots, b = R.binary;
   let c = `${R.demo ? "These numbers are simulated demo data. " : ""}Full dataset ${fmt(R.n)} sites (${fmt(R.n_phish)} phishing, ${fmt(R.n_legit)} legitimate). Median URL length ${L.phish.median} phishing vs ${L.legit.median} legitimate. Mean hyphens ${hy.phish.mean} vs ${hy.legit.mean}. Mean dots ${d.phish.mean} vs ${d.legit.mean}. HTTPS ${b.https.phish_pct}% vs ${b.https.legit_pct}%. @ symbol ${b.at_symbol.phish_pct}% vs ${b.at_symbol.legit_pct}%. Test ${T.name}, p ${pText(T.p)}, ${T.effect_name} ${T.effect} (${T.effect_label}). ${T.conclusion} ${keep} Recommendation. ${reco} The user is on the ${prev} page.`;
@@ -294,7 +301,7 @@ async function send(text) {
   } catch (e) { a.content = a.content || `Sorry, I could not reach the assistant (${e.message}). Try again.`; }
   busy = false; paint();
 }
-fab.onclick = () => setChat(box.hidden);
+fab.onclick = () => setChat(box.hidden || box.classList.contains("closing"));
 $("chatClose").onclick = () => setChat(false);
 box.addEventListener("keydown", e => { if (e.key === "Escape") setChat(false); });
 $("chatForm").onsubmit = e => { e.preventDefault(); const t = $("chatIn").value; $("chatIn").value = ""; send(t); };
@@ -350,6 +357,7 @@ function route() {
   if (chart) { chart.destroy(); chart = null; }
   charts.forEach(c => c.destroy()); charts = [];
   document.querySelector(".shell").classList.toggle("out", !r);
+  document.body.classList.toggle("is-out", !r);   // login page moves the motion button to the right
   v.innerHTML = pages[page]();
   v.classList.remove("enter"); void v.offsetWidth; v.classList.add("enter");
   $("links").innerHTML = NAV.filter(n => !n[2] || n[2] === r).map(n => `<a href="#/${n[0]}"${n[0] === page ? ' aria-current="page"' : ""}>${n[1]}</a>`).join("");

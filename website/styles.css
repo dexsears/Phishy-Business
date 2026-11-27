@@ -30,8 +30,11 @@ main h1::after{content:"";display:block;width:56px;height:3px;margin-top:9px;bor
 .top{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:20px;height:54px;padding:0 24px;background:rgba(14,26,44,.82);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid var(--line);transition:box-shadow .5s}
 .top.lifted{box-shadow:0 12px 32px rgba(0,0,0,.4)}
 .logo{display:flex;align-items:center;gap:10px;font:600 1.02rem var(--head);letter-spacing:-.005em;color:var(--ink);text-decoration:none;white-space:nowrap}
-.mark{width:15px;height:15px;border-radius:3px;background:linear-gradient(135deg,var(--ph) 50%,var(--lg) 50%);transition:transform .9s var(--ease)}
-.logo:hover .mark{transform:rotate(180deg)}
+.fish{flex:none;overflow:visible;animation:swimin 1.4s var(--ease) both}
+.fish .tail{transform-origin:20px 17.5px}
+.logo:hover .fish .tail{animation:swish .9s ease-in-out}
+.logo:hover .fish{animation:bob .9s ease-in-out}
+.brand .fish{width:32px;height:32px}
 #links{display:flex;gap:2px;flex:1;min-width:0;overflow-x:auto}
 #links a{position:relative;padding:18px 14px 16px;color:var(--mut);text-decoration:none;white-space:nowrap;transition:color .3s}
 #links a::after{content:"";position:absolute;left:14px;right:14px;bottom:0;height:2px;background:var(--acc);transform:scaleX(0);transform-origin:left;transition:transform .55s var(--ease)}
@@ -50,6 +53,7 @@ footer{padding:14px 24px 14px 160px;border-top:1px solid var(--line);color:var(-
 .btn.sm{padding:4px 10px;font-size:.8rem}.btn.block{width:100%}
 .btn:disabled{opacity:.4;cursor:default;transform:none;box-shadow:none}
 .mo{position:fixed;left:16px;bottom:16px;z-index:15;font:600 .72rem var(--body);color:var(--mut);background:rgba(14,26,44,.85);border:1px solid var(--line);border-radius:999px;padding:5px 12px;cursor:pointer;transition:color .3s,border-color .3s}
+.is-out .mo{left:auto;right:16px}
 .mo:hover{color:var(--ink);border-color:var(--acc)}
 select,input,textarea{width:100%;font:inherit;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:var(--r);padding:7px 10px;transition:border-color .3s,box-shadow .3s}
 select:hover,input:hover,textarea:hover{border-color:#34506f}
@@ -131,9 +135,13 @@ input[aria-invalid=true]{border-color:#ff9d80}
 .brand::before{content:"";position:absolute;inset:-20%;pointer-events:none;background:radial-gradient(40% 35% at 22% 18%,rgba(224,184,98,.14),transparent 70%),radial-gradient(38% 38% at 82% 78%,rgba(255,106,61,.13),transparent 70%),radial-gradient(40% 40% at 72% 14%,rgba(43,181,160,.12),transparent 70%);animation:drift 20s ease-in-out infinite alternate}
 .brand>*{position:relative}
 .brand h1{font-size:clamp(1.8rem,3.2vw,2.7rem);font-weight:600;line-height:1.12;max-width:15em;margin:0 0 12px}.brand p{color:var(--mut);max-width:36em;margin:0 0 18px}
-.url{position:relative;overflow:hidden;font:500 .85rem var(--mono);background:rgba(8,16,28,.8);border:1px solid var(--line);border-radius:var(--r);padding:13px 15px;overflow-x:auto;white-space:nowrap}
+.url{position:relative;overflow:hidden;font:500 .85rem var(--mono);background:rgba(8,16,28,.8);border:1px solid var(--line);border-radius:var(--r);padding:13px 15px;white-space:normal;overflow-wrap:anywhere}
 .url::after{content:"";position:absolute;top:0;bottom:0;left:-40%;width:40%;pointer-events:none;background:linear-gradient(90deg,transparent,rgba(224,184,98,.2),transparent);animation:scan 3.4s .9s ease-in-out 2 both}
 mark{background:transparent;color:inherit;border-bottom:2px solid transparent;animation:flag .8s var(--d,0s) forwards}
+.team{display:flex;align-items:center;gap:12px}.team b{display:block;font:600 .95rem var(--head)}.team small{display:block;color:var(--mut);font-size:.76rem;max-width:36em}
+.badge-ic{flex:none;overflow:visible;transform-origin:16px 1px;animation:sway 2.4s 1.2s var(--ease) both}
+.team:hover .badge-ic{animation:sway 1.4s var(--ease)}
+.team-sm{display:inline-flex;align-items:center;gap:6px;vertical-align:middle;color:var(--ink)}.team-sm .badge-ic{animation:none}
 .facts{display:flex;gap:30px;flex-wrap:wrap}.facts b{display:block;font:500 1.3rem var(--mono)}.facts span:not([data-count]){color:var(--mut);font-size:.78rem}
 .authbox{display:grid;place-items:center;padding:40px 24px}.authbox form{width:100%;max-width:360px}
 .authbox h2{font-size:1.5rem;font-weight:600}.authbox .mutp{color:var(--mut);margin:4px 0 0}
@@ -146,6 +154,7 @@ fieldset.lv{border:0;padding:0;margin:20px 0 14px;display:grid;gap:8px}
 .fab{position:fixed;right:20px;bottom:20px;z-index:20;box-shadow:0 8px 24px rgba(0,0,0,.5);animation:ring 2.6s 2s ease-out 3}
 #chat{position:fixed;right:20px;bottom:68px;z-index:20;width:min(400px,calc(100vw - 24px));height:min(560px,calc(100vh - 100px));display:flex;flex-direction:column;background:var(--s1);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 20px 56px rgba(0,0,0,.65);transform-origin:bottom right;animation:pop .55s var(--ease) both}
 #chat[hidden]{display:none}
+#chat.closing{pointer-events:none;animation:out .42s cubic-bezier(.4,0,1,1) both}
 #chat header{display:flex;justify-content:space-between;align-items:center;padding:11px 14px;border-bottom:1px solid var(--line)}
 #msgs{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
 .msg{max-width:88%;padding:8px 11px;border-radius:var(--r);white-space:pre-wrap;line-height:1.45;overflow-wrap:anywhere}
@@ -154,7 +163,15 @@ fieldset.lv{border:0;padding:0;margin:20px 0 14px;display:grid;gap:8px}
 #chips{display:flex;gap:6px;flex-wrap:wrap;padding:0 12px 8px}
 #chips button{font:600 .76rem var(--body);background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:4px 10px;cursor:pointer;transition:border-color .3s,transform .3s var(--ease)}#chips button:hover{border-color:var(--acc);transform:translateY(-1px)}
 #chatForm{display:flex;gap:8px;padding:0 12px 6px}#chatForm textarea{resize:none;flex:1}#chat .fine{padding:0 12px 10px;margin:0}
+/* explore title area is centered */
+.mid{text-align:center}.lead.mid{margin-left:auto;margin-right:auto}.seg.mid{justify-content:center}
+h1.mid::after{margin-left:auto;margin-right:auto;transform-origin:center}
 /* motion */
+@keyframes swimin{from{opacity:0;transform:translateX(-14px)}to{opacity:1;transform:none}}
+@keyframes swish{25%{transform:rotate(14deg)}60%{transform:rotate(-12deg)}to{transform:none}}
+@keyframes bob{40%{transform:translateY(-2px) rotate(-4deg)}to{transform:none}}
+@keyframes out{to{opacity:0;transform:translateY(14px) scale(.92)}}
+@keyframes sway{15%{transform:rotate(-9deg)}40%{transform:rotate(7deg)}65%{transform:rotate(-4deg)}to{transform:none}}
 @keyframes drift{from{transform:translate3d(-3%,-2%,0) scale(1)}to{transform:translate3d(4%,3%,0) scale(1.08)}}
 @keyframes enter{from{opacity:0;transform:translateY(26px);filter:blur(8px)}to{opacity:1;transform:none;filter:none}}
 @keyframes fade{from{opacity:0}}
