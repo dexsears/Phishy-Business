@@ -4,7 +4,7 @@
    Roles are front-end only. They hide pages, they do not protect data (see README). */
 (() => {
 "use strict";
-const AI_URL = "";   // paste your Cloudflare Worker address here (see README)
+const AI_URL = "https://phishician.dsbucane.workers.dev/";   // paste your Cloudflare Worker address here (see README)
 const AI_NAME = "Phishician";   // name shown on the chat button
 const ADMIN_PASSCODE = "interns";   // change it here. Anyone can read it in the page source.
 const $ = id => document.getElementById(id);
