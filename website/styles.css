@@ -2,6 +2,7 @@
 :root{--bg:#0b1118;--s1:#111a24;--s2:#182331;--line:#243246;--ink:#e8edf4;--mut:#94a3b8;--acc:#f5b83d;--ph:#ff6a3d;--lg:#2bb5a0;--r:6px;
 --head:"Space Grotesk","Segoe UI",sans-serif;--body:"IBM Plex Sans","Segoe UI",Arial,sans-serif;--mono:"IBM Plex Mono",ui-monospace,Consolas,monospace}
 *{box-sizing:border-box}
+[hidden]{display:none!important}   /* classes like .btn set display, which would otherwise show hidden elements */
 body{margin:0;background:var(--bg);color:var(--ink);font:400 .875rem/1.45 var(--body)}
 h1,h2,h3{font-family:var(--head);margin:0;line-height:1.15}
 h1{font-size:1.35rem;font-weight:700}h2{font-size:.95rem;font-weight:700}
