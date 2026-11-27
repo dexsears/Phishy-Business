@@ -202,3 +202,10 @@ h1.mid::after{margin-left:auto;margin-right:auto;transform-origin:center}
 html.calm *,html.calm *::before,html.calm *::after{animation:none!important;transition:none!important}
 html.calm mark{background:rgba(255,106,61,.2);border-bottom-color:var(--ph)}
 html.calm .rv{opacity:1!important;transform:none!important;filter:none!important}
+/* Unpaid Interns badge on the landing page */
+.team{display:flex;align-items:center;gap:12px}
+.team b{display:block;font-weight:600;font-size:.95rem}
+.team small{display:block;color:#93a4bb;font-size:.76rem;max-width:36em}
+.badge-ic{flex:none;overflow:visible;transform-origin:16px 1px;animation:sway 2.4s 1.2s ease both}
+.team:hover .badge-ic{animation:sway 1.4s ease}
+@keyframes sway{15%{transform:rotate(-9deg)}40%{transform:rotate(7deg)}65%{transform:rotate(-4deg)}to{transform:none}}
